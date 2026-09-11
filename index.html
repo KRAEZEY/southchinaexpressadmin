@@ -436,6 +436,49 @@
         width:100%;
       }
     }
+
+    .new-order-alert {
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:rgba(0,0,0,.72);
+      backdrop-filter:blur(3px);
+    }
+    .new-order-alert.show { display:flex; }
+    .new-order-alert-card {
+      width:min(520px,100%);
+      background:#fff;
+      border:5px solid var(--gold);
+      border-radius:24px;
+      padding:26px 22px;
+      text-align:center;
+      box-shadow:0 24px 70px rgba(0,0,0,.45);
+      animation:newOrderPulse .8s infinite alternate;
+    }
+    .new-order-alert-icon { font-size:3rem; line-height:1; margin-bottom:8px; }
+    .new-order-alert-title {
+      margin:0; color:var(--red); font-size:clamp(2rem,7vw,3.2rem);
+      font-weight:1000; letter-spacing:.02em;
+    }
+    .new-order-alert-number { margin:10px 0 0; font-size:1.15rem; font-weight:1000; color:var(--black); }
+    .new-order-alert-total { margin:6px 0 0; font-size:1.45rem; font-weight:1000; }
+    .new-order-alert-copy { margin:10px auto 18px; max-width:390px; color:#555; font-weight:700; line-height:1.4; }
+    .acknowledge-order-btn {
+      width:100%; border:0; border-radius:14px; padding:16px;
+      background:var(--red); color:#fff; font-size:1.05rem; font-weight:1000; cursor:pointer;
+    }
+    .sound-toggle-btn { background:#ffe9ad !important; color:#5f4300 !important; }
+    .sound-toggle-btn.enabled { background:#dff5e6 !important; color:#176b3a !important; }
+
+    @keyframes newOrderPulse {
+      from { transform:scale(1); box-shadow:0 24px 70px rgba(0,0,0,.45); }
+      to { transform:scale(1.025); box-shadow:0 24px 90px rgba(210,31,38,.65); }
+    }
+
   </style>
 </head>
 
@@ -448,11 +491,23 @@
       </div>
 
       <div id="topActions" class="top-actions" style="display:none;">
+        <button id="soundToggleBtn" class="sound-toggle-btn" type="button" onclick="toggleOrderSound()">🔇 Alerts Off</button>
         <button class="refresh-btn" type="button" onclick="loadOrders()">Refresh</button>
         <button class="logout-btn" type="button" onclick="signOut()">Sign Out</button>
       </div>
     </div>
   </header>
+
+  <div id="newOrderAlert" class="new-order-alert" role="alertdialog" aria-modal="true" aria-labelledby="newOrderAlertTitle">
+    <div class="new-order-alert-card">
+      <div class="new-order-alert-icon">🔔</div>
+      <h2 id="newOrderAlertTitle" class="new-order-alert-title">NEW ORDER!</h2>
+      <div id="newOrderAlertNumber" class="new-order-alert-number"></div>
+      <div id="newOrderAlertTotal" class="new-order-alert-total"></div>
+      <div class="new-order-alert-copy">A new SOUTH CHINA EXPRESS order just came in.</div>
+      <button class="acknowledge-order-btn" type="button" onclick="acknowledgeNewOrder()">ACKNOWLEDGE ORDER</button>
+    </div>
+  </div>
 
   <main class="wrap">
 
@@ -538,6 +593,10 @@
   let ordersChannel = null;
   let settingsChannel = null;
   let orderingOpen = false;
+  let audioContext = null;
+  let soundEnabled = false;
+  let alertSoundTimer = null;
+  let activeAlertOrder = null;
 
   function money(value) {
     return "$" + Number(value || 0).toFixed(2);
@@ -564,6 +623,109 @@
     el.className = "message";
   }
 
+  async function enableOrderSound() {
+    try {
+      if (!audioContext) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          showMessage("dashboardMessage", "This browser does not support dashboard sound alerts.", "error");
+          return false;
+        }
+        audioContext = new AudioContextClass();
+      }
+      if (audioContext.state === "suspended") await audioContext.resume();
+      soundEnabled = true;
+      renderSoundButton();
+      playNewOrderChime();
+      return true;
+    } catch (error) {
+      console.error("Could not enable sound alerts:", error);
+      soundEnabled = false;
+      renderSoundButton();
+      return false;
+    }
+  }
+
+  function disableOrderSound() {
+    soundEnabled = false;
+    stopAlertSound();
+    renderSoundButton();
+  }
+
+  async function toggleOrderSound() {
+    if (soundEnabled) {
+      disableOrderSound();
+      showMessage("dashboardMessage", "New-order sound alerts are OFF.", "success");
+      return;
+    }
+    const enabled = await enableOrderSound();
+    if (enabled) showMessage("dashboardMessage", "New-order sound alerts are ON.", "success");
+  }
+
+  function renderSoundButton() {
+    const btn = document.getElementById("soundToggleBtn");
+    if (!btn) return;
+    btn.textContent = soundEnabled ? "🔊 Alerts On" : "🔇 Alerts Off";
+    btn.classList.toggle("enabled", soundEnabled);
+  }
+
+  function tone(frequency, startDelay, duration) {
+    if (!soundEnabled || !audioContext) return;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    const start = audioContext.currentTime + startDelay;
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.45, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(start);
+    oscillator.stop(start + duration + 0.03);
+  }
+
+  function playNewOrderChime() {
+    if (!soundEnabled || !audioContext) return;
+    tone(880, 0, .22);
+    tone(1175, .27, .22);
+    tone(880, .56, .28);
+  }
+
+  function startAlertSound() {
+    stopAlertSound();
+    if (!soundEnabled) return;
+    playNewOrderChime();
+    alertSoundTimer = window.setInterval(playNewOrderChime, 4000);
+  }
+
+  function stopAlertSound() {
+    if (alertSoundTimer) {
+      clearInterval(alertSoundTimer);
+      alertSoundTimer = null;
+    }
+  }
+
+  function showNewOrderAlert(order) {
+    if (!order) return;
+    activeAlertOrder = order;
+    document.getElementById("newOrderAlertNumber").textContent = order.order_number || "New order";
+    document.getElementById("newOrderAlertTotal").textContent = money(order.total);
+    document.getElementById("newOrderAlert").classList.add("show");
+    startAlertSound();
+  }
+
+  function acknowledgeNewOrder() {
+    stopAlertSound();
+    document.getElementById("newOrderAlert").classList.remove("show");
+    activeAlertOrder = null;
+    currentFilter = "ACTIVE";
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.filter === "ACTIVE");
+    });
+    renderOrders();
+  }
+
   async function signIn() {
     clearMessage("loginMessage");
 
@@ -586,6 +748,11 @@
   }
 
   async function signOut() {
+    stopAlertSound();
+    activeAlertOrder = null;
+    const alertEl = document.getElementById("newOrderAlert");
+    if (alertEl) alertEl.classList.remove("show");
+
     if (ordersChannel) {
       await db.removeChannel(ordersChannel);
       ordersChannel = null;
@@ -1020,7 +1187,10 @@
           schema: "public",
           table: "orders"
         },
-        () => {
+        payload => {
+          if (payload.eventType === "INSERT") {
+            showNewOrderAlert(payload.new);
+          }
           loadOrders();
         }
       )

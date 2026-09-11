@@ -907,6 +907,7 @@
         order_number,
         customer_name,
         customer_phone,
+        sms_opt_in,
         notes,
         order_status,
         payment_method,
@@ -1130,6 +1131,37 @@
     }).join("");
   }
 
+  async function sendOrderSms(orderId, type) {
+    try {
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/order-sms`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({
+            order_id: orderId,
+            type
+          })
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        console.error("SMS request failed:", data);
+        return { ok: false, data };
+      }
+
+      return { ok: true, data };
+    } catch (error) {
+      console.error("SMS request failed:", error);
+      return { ok: false, data: { error: error.message } };
+    }
+  }
+
   async function updateStatus(orderId, newStatus) {
     clearMessage("dashboardMessage");
 
@@ -1166,11 +1198,26 @@
       return;
     }
 
-    showMessage(
-      "dashboardMessage",
+    let statusMessage =
       completingOrder
         ? `${order.order_number} completed and marked PAID.`
-        : `${order.order_number} updated to ${newStatus}.`,
+        : `${order.order_number} updated to ${newStatus}.`;
+
+    if (newStatus === "READY" && order.sms_opt_in) {
+      const smsResult = await sendOrderSms(orderId, "ready");
+
+      if (smsResult.ok && smsResult.data.sent) {
+        statusMessage += " Customer texted: READY FOR PICKUP.";
+      } else if (smsResult.ok && smsResult.data.alreadySent) {
+        statusMessage += " Ready-for-pickup text was already sent.";
+      } else if (!smsResult.ok) {
+        statusMessage += " Order is READY, but the customer text could not be sent.";
+      }
+    }
+
+    showMessage(
+      "dashboardMessage",
+      statusMessage,
       "success"
     );
   }

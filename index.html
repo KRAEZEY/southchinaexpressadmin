@@ -347,11 +347,15 @@
       margin-bottom:4px;
     }
 
-    .payment-line {
-      font-size:.82rem;
-      color:var(--gray-600);
-      margin-bottom:12px;
+    .payment-line { margin-bottom:12px; }
+    .payment-badge {
+      display:inline-flex; align-items:center; gap:7px; padding:8px 11px;
+      border-radius:999px; font-size:.8rem; line-height:1; font-weight:1000;
+      letter-spacing:.02em; border:2px solid transparent;
     }
+    .payment-badge.paid { background:#e8f7ee; color:#176b3a; border-color:#9dd8b5; }
+    .payment-badge.unpaid { background:#fff0e8; color:#9b3414; border-color:#f0b195; }
+    .payment-badge.other { background:#f1f3f5; color:#495057; border-color:#ced4da; }
 
     .actions {
       display:grid;
@@ -839,6 +843,20 @@
     });
   }
 
+  function paymentBadge(order) {
+    const method = String(order.payment_method || "").toUpperCase();
+    const status = String(order.payment_status || "").toUpperCase();
+
+    if (status === "PAID") {
+      return '<span class="payment-badge paid">✓ PAID ONLINE</span>';
+    }
+    if (method === "PAY AT PICKUP" && status === "UNPAID") {
+      return '<span class="payment-badge unpaid">● PAY AT PICKUP — UNPAID</span>';
+    }
+    const text = `${method || "PAYMENT"} — ${status || "UNKNOWN"}`;
+    return `<span class="payment-badge other">${escapeHtml(text)}</span>`;
+  }
+
   function renderOrders() {
     const grid = document.getElementById("ordersGrid");
     const list = filteredOrders();
@@ -927,7 +945,7 @@
               </div>
 
               <div class="payment-line">
-                ${escapeHtml(order.payment_method)} • ${escapeHtml(order.payment_status)}
+                ${paymentBadge(order)}
               </div>
 
               <div class="actions">

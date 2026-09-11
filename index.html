@@ -967,17 +967,25 @@
     if (!order) return;
 
     const oldStatus = order.order_status;
+    const oldPaymentStatus = order.payment_status;
+    const completingOrder = newStatus === "COMPLETED";
+
     order.order_status = newStatus;
+    if (completingOrder) order.payment_status = "PAID";
     renderSummary();
     renderOrders();
 
+    const updateData = { order_status: newStatus };
+    if (completingOrder) updateData.payment_status = "PAID";
+
     const { error } = await db
       .from("orders")
-      .update({ order_status: newStatus })
+      .update(updateData)
       .eq("id", orderId);
 
     if (error) {
       order.order_status = oldStatus;
+      order.payment_status = oldPaymentStatus;
       renderSummary();
       renderOrders();
       showMessage(
@@ -990,7 +998,9 @@
 
     showMessage(
       "dashboardMessage",
-      `${order.order_number} updated to ${newStatus}.`,
+      completingOrder
+        ? `${order.order_number} completed and marked PAID.`
+        : `${order.order_number} updated to ${newStatus}.`,
       "success"
     );
   }

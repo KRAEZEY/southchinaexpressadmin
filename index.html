@@ -847,8 +847,11 @@
     const method = String(order.payment_method || "").toUpperCase();
     const status = String(order.payment_status || "").toUpperCase();
 
-    if (status === "PAID") {
+    if (status === "PAID" && method === "ONLINE") {
       return '<span class="payment-badge paid">✓ PAID ONLINE</span>';
+    }
+    if (status === "PAID" && method === "PAY AT PICKUP") {
+      return '<span class="payment-badge paid">✓ PAID CASH / VENMO</span>';
     }
     if (method === "PAY AT PICKUP" && status === "UNPAID") {
       return '<span class="payment-badge unpaid">● PAY AT PICKUP — UNPAID</span>';

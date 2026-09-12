@@ -171,6 +171,160 @@
     .ordering-toggle.closed { background:var(--green); }
     .ordering-toggle:disabled { opacity:.55; cursor:not-allowed; }
 
+
+    .menu-manager {
+      background:#fff;
+      border:1px solid #eadfce;
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      margin-bottom:18px;
+    }
+
+    .menu-manager-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .menu-manager-head h2 { margin:0 0 4px; font-size:1.2rem; }
+    .menu-manager-head p { margin:0; color:var(--gray-600); font-size:.86rem; font-weight:700; }
+
+    .menu-manager-actions {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .menu-action-btn {
+      border:0;
+      border-radius:10px;
+      padding:10px 12px;
+      font-weight:900;
+      cursor:pointer;
+      background:var(--black);
+      color:#fff;
+    }
+
+    .menu-action-btn.secondary { background:#eee; color:#222; }
+    .menu-action-btn.danger { background:#94181d; color:#fff; }
+
+    .menu-admin-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .menu-admin-card {
+      border:1px solid var(--gray-200);
+      border-radius:14px;
+      padding:13px;
+      background:#fcfcfc;
+    }
+
+    .menu-admin-card.sold-out { border-color:#e5b9b9; background:#fff8f8; }
+
+    .menu-admin-title {
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      margin-bottom:10px;
+    }
+
+    .menu-admin-title strong { font-size:1rem; }
+
+    .menu-pill {
+      display:inline-block;
+      border-radius:999px;
+      padding:5px 8px;
+      font-size:.7rem;
+      font-weight:900;
+      white-space:nowrap;
+    }
+
+    .menu-pill.available { background:#dff4e7; color:#126537; }
+    .menu-pill.sold { background:#f4dede; color:#8c181d; }
+
+    .menu-form-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .menu-form-grid .wide { grid-column:1 / -1; }
+
+    .menu-form-grid input,
+    .menu-form-grid textarea,
+    .menu-form-grid select {
+      width:100%;
+      padding:10px;
+      border:1px solid var(--gray-300);
+      border-radius:9px;
+      font:inherit;
+      background:#fff;
+    }
+
+    .menu-form-grid textarea { min-height:72px; resize:vertical; }
+
+    .menu-admin-buttons {
+      display:flex;
+      gap:7px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .menu-options-admin {
+      margin-top:12px;
+      padding-top:10px;
+      border-top:1px solid var(--gray-200);
+    }
+
+    .menu-option-row {
+      display:grid;
+      grid-template-columns:1fr 100px auto auto;
+      gap:7px;
+      align-items:center;
+      margin-top:7px;
+    }
+
+    .menu-option-row input {
+      width:100%;
+      padding:9px;
+      border:1px solid var(--gray-300);
+      border-radius:8px;
+    }
+
+    .menu-empty {
+      grid-column:1 / -1;
+      color:var(--gray-600);
+      font-weight:700;
+      padding:14px;
+      text-align:center;
+    }
+
+    .menu-manager-details summary {
+      cursor:pointer;
+      font-weight:950;
+      font-size:1.03rem;
+      list-style:none;
+    }
+
+    .menu-manager-details summary::-webkit-details-marker { display:none; }
+
+    .menu-manager-details[open] summary { margin-bottom:14px; }
+
+    @media (max-width:760px) {
+      .menu-admin-grid { grid-template-columns:1fr; }
+      .menu-manager-head { flex-direction:column; }
+      .menu-form-grid { grid-template-columns:1fr; }
+      .menu-form-grid .wide { grid-column:auto; }
+      .menu-option-row { grid-template-columns:1fr 85px; }
+      .menu-option-row button { width:100%; }
+    }
+
     .summary {
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -548,6 +702,29 @@
         </button>
       </section>
 
+
+      <section class="menu-manager">
+        <details class="menu-manager-details">
+          <summary>🍜 Menu Manager</summary>
+
+          <div class="menu-manager-head">
+            <div>
+              <h2>Edit the customer menu</h2>
+              <p>Prices, descriptions and SOLD OUT changes update the ordering page automatically.</p>
+            </div>
+            <div class="menu-manager-actions">
+              <button class="menu-action-btn" type="button" onclick="addMenuItem()">+ Add Item</button>
+              <button class="menu-action-btn secondary" type="button" onclick="loadAdminMenu()">Refresh Menu</button>
+            </div>
+          </div>
+
+          <div id="menuManagerMessage" class="message"></div>
+          <div id="menuAdminGrid" class="menu-admin-grid">
+            <div class="menu-empty">Loading menu…</div>
+          </div>
+        </details>
+      </section>
+
       <section class="summary">
         <div class="summary-card">
           <div class="summary-label">New</div>
@@ -589,6 +766,8 @@
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let orders = [];
+  let adminMenu = [];
+  let menuChannel = null;
   let currentFilter = "ACTIVE";
   let ordersChannel = null;
   let settingsChannel = null;
@@ -778,9 +957,10 @@
       loginCard.style.display = "none";
       dashboard.style.display = "block";
       topActions.style.display = "flex";
-      await Promise.all([loadOrders(), loadOrderingStatus()]);
+      await Promise.all([loadOrders(), loadOrderingStatus(), loadAdminMenu()]);
       subscribeToOrders();
       subscribeToOrderingStatus();
+      subscribeToMenuAdmin();
     } else {
       loginCard.style.display = "block";
       dashboard.style.display = "none";
@@ -891,6 +1071,313 @@
           renderOrderingControl();
         }
       )
+      .subscribe();
+  }
+
+
+  async function loadAdminMenu() {
+    const grid = document.getElementById("menuAdminGrid");
+    if (!grid) return;
+
+    const { data, error } = await db
+      .from("menu_items")
+      .select(`
+        id,
+        slug,
+        name,
+        description,
+        emoji,
+        image_url,
+        base_price,
+        is_visible,
+        is_available,
+        display_order,
+        menu_options (
+          id,
+          label,
+          price,
+          is_available,
+          display_order
+        )
+      `)
+      .order("display_order", { ascending:true });
+
+    if (error) {
+      console.error(error);
+      grid.innerHTML = `<div class="menu-empty">Could not load menu: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    adminMenu = data || [];
+    renderAdminMenu();
+  }
+
+  function renderAdminMenu() {
+    const grid = document.getElementById("menuAdminGrid");
+    if (!grid) return;
+
+    if (!adminMenu.length) {
+      grid.innerHTML = `<div class="menu-empty">No menu items yet. Tap “Add Item”.</div>`;
+      return;
+    }
+
+    grid.innerHTML = adminMenu.map(item => {
+      const options = [...(item.menu_options || [])]
+        .sort((a,b) => Number(a.display_order || 0) - Number(b.display_order || 0));
+
+      return `
+        <article class="menu-admin-card ${item.is_available ? "" : "sold-out"}">
+          <div class="menu-admin-title">
+            <strong>${escapeHtml(item.emoji || "🥡")} ${escapeHtml(item.name)}</strong>
+            <span class="menu-pill ${item.is_available ? "available" : "sold"}">
+              ${item.is_available ? "AVAILABLE" : "SOLD OUT"}
+            </span>
+          </div>
+
+          <div class="menu-form-grid">
+            <div>
+              <label>Name</label>
+              <input id="menu-name-${item.id}" value="${escapeHtml(item.name)}" />
+            </div>
+            <div>
+              <label>Emoji</label>
+              <input id="menu-emoji-${item.id}" value="${escapeHtml(item.emoji || "")}" />
+            </div>
+            <div class="wide">
+              <label>Description</label>
+              <textarea id="menu-description-${item.id}">${escapeHtml(item.description || "")}</textarea>
+            </div>
+            <div class="wide">
+              <label>Photo URL (optional)</label>
+              <input id="menu-image-${item.id}" value="${escapeHtml(item.image_url || "")}" placeholder="https://..." />
+            </div>
+            <div>
+              <label>Base price</label>
+              <input id="menu-price-${item.id}" type="number" step="0.01" min="0" value="${item.base_price ?? ""}" ${options.length ? "disabled" : ""} />
+            </div>
+            <div>
+              <label>Display order</label>
+              <input id="menu-order-${item.id}" type="number" step="1" value="${Number(item.display_order || 0)}" />
+            </div>
+          </div>
+
+          <div class="menu-admin-buttons">
+            <button class="menu-action-btn" type="button" onclick="saveMenuItem('${item.id}')">Save Item</button>
+            <button class="menu-action-btn ${item.is_available ? "danger" : ""}" type="button" onclick="toggleMenuAvailability('${item.id}', ${!item.is_available})">
+              ${item.is_available ? "Mark SOLD OUT" : "Mark AVAILABLE"}
+            </button>
+            <button class="menu-action-btn secondary" type="button" onclick="toggleMenuVisibility('${item.id}', ${!item.is_visible})">
+              ${item.is_visible ? "Hide from Menu" : "Show on Menu"}
+            </button>
+          </div>
+
+          <div class="menu-options-admin">
+            <strong>Options / sizes</strong>
+            ${options.map(option => `
+              <div class="menu-option-row">
+                <input id="option-label-${option.id}" value="${escapeHtml(option.label)}" />
+                <input id="option-price-${option.id}" type="number" min="0" step="0.01" value="${Number(option.price).toFixed(2)}" />
+                <button class="menu-action-btn secondary" type="button" onclick="saveMenuOption('${option.id}')">Save</button>
+                <button class="menu-action-btn ${option.is_available ? "danger" : ""}" type="button" onclick="toggleMenuOption('${option.id}', ${!option.is_available})">
+                  ${option.is_available ? "Sold Out" : "Available"}
+                </button>
+              </div>
+            `).join("")}
+            <div class="menu-admin-buttons">
+              <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}')">+ Add Option</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  async function saveMenuItem(itemId) {
+    const item = adminMenu.find(row => row.id === itemId);
+    if (!item) return;
+
+    const options = item.menu_options || [];
+    const basePriceRaw = document.getElementById(`menu-price-${itemId}`).value;
+
+    const update = {
+      name: document.getElementById(`menu-name-${itemId}`).value.trim(),
+      description: document.getElementById(`menu-description-${itemId}`).value.trim(),
+      emoji: document.getElementById(`menu-emoji-${itemId}`).value.trim() || "🥡",
+      image_url: document.getElementById(`menu-image-${itemId}`).value.trim() || null,
+      base_price: options.length ? null : Number(basePriceRaw),
+      display_order: Number(document.getElementById(`menu-order-${itemId}`).value || 0)
+    };
+
+    if (!update.name) {
+      showMessage("menuManagerMessage", "Menu item name is required.", "error");
+      return;
+    }
+
+    if (!options.length && (!Number.isFinite(update.base_price) || update.base_price < 0)) {
+      showMessage("menuManagerMessage", "Enter a valid price.", "error");
+      return;
+    }
+
+    const { error } = await db.from("menu_items").update(update).eq("id", itemId);
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not save menu item: " + error.message, "error");
+      return;
+    }
+
+    showMessage("menuManagerMessage", `${update.name} saved.`, "success");
+    await loadAdminMenu();
+  }
+
+  async function toggleMenuAvailability(itemId, available) {
+    const { error } = await db
+      .from("menu_items")
+      .update({ is_available: available })
+      .eq("id", itemId);
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not update availability: " + error.message, "error");
+      return;
+    }
+
+    await loadAdminMenu();
+  }
+
+  async function toggleMenuVisibility(itemId, visible) {
+    const { error } = await db
+      .from("menu_items")
+      .update({ is_visible: visible })
+      .eq("id", itemId);
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not update visibility: " + error.message, "error");
+      return;
+    }
+
+    await loadAdminMenu();
+  }
+
+  async function saveMenuOption(optionId) {
+    const label = document.getElementById(`option-label-${optionId}`).value.trim();
+    const price = Number(document.getElementById(`option-price-${optionId}`).value);
+
+    if (!label || !Number.isFinite(price) || price < 0) {
+      showMessage("menuManagerMessage", "Enter a valid option name and price.", "error");
+      return;
+    }
+
+    const { error } = await db
+      .from("menu_options")
+      .update({ label, price })
+      .eq("id", optionId);
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not save option: " + error.message, "error");
+      return;
+    }
+
+    showMessage("menuManagerMessage", "Option saved.", "success");
+    await loadAdminMenu();
+  }
+
+  async function toggleMenuOption(optionId, available) {
+    const { error } = await db
+      .from("menu_options")
+      .update({ is_available: available })
+      .eq("id", optionId);
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not update option: " + error.message, "error");
+      return;
+    }
+
+    await loadAdminMenu();
+  }
+
+  async function addMenuItem() {
+    const name = prompt("New menu item name:");
+    if (!name || !name.trim()) return;
+
+    const priceText = prompt("Base price (example: 12.00):", "0.00");
+    if (priceText === null) return;
+
+    const price = Number(priceText);
+    if (!Number.isFinite(price) || price < 0) {
+      showMessage("menuManagerMessage", "Invalid price.", "error");
+      return;
+    }
+
+    const slugBase = name.trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const slug = `${slugBase || "item"}-${Date.now().toString(36)}`;
+
+    const maxOrder = adminMenu.reduce((max, item) => Math.max(max, Number(item.display_order || 0)), 0);
+
+    const { error } = await db.from("menu_items").insert({
+      slug,
+      name: name.trim(),
+      description: "",
+      emoji: "🥡",
+      base_price: price,
+      is_visible: true,
+      is_available: true,
+      display_order: maxOrder + 10
+    });
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not add item: " + error.message, "error");
+      return;
+    }
+
+    showMessage("menuManagerMessage", `${name.trim()} added.`, "success");
+    await loadAdminMenu();
+  }
+
+  async function addMenuOption(itemId) {
+    const label = prompt("Option name (example: 10 piece):");
+    if (!label || !label.trim()) return;
+
+    const priceText = prompt("Option price:", "0.00");
+    if (priceText === null) return;
+
+    const price = Number(priceText);
+    if (!Number.isFinite(price) || price < 0) {
+      showMessage("menuManagerMessage", "Invalid option price.", "error");
+      return;
+    }
+
+    const item = adminMenu.find(row => row.id === itemId);
+    const options = item?.menu_options || [];
+    const maxOrder = options.reduce((max, option) => Math.max(max, Number(option.display_order || 0)), 0);
+
+    const { error } = await db.from("menu_options").insert({
+      menu_item_id: itemId,
+      label: label.trim(),
+      price,
+      is_available: true,
+      display_order: maxOrder + 10
+    });
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not add option: " + error.message, "error");
+      return;
+    }
+
+    // Once an item has options, its price comes from the options.
+    await db.from("menu_items").update({ base_price: null }).eq("id", itemId);
+
+    showMessage("menuManagerMessage", "Option added.", "success");
+    await loadAdminMenu();
+  }
+
+  function subscribeToMenuAdmin() {
+    if (menuChannel) return;
+
+    menuChannel = db
+      .channel("south-china-express-admin-menu")
+      .on("postgres_changes", { event:"*", schema:"public", table:"menu_items" }, loadAdminMenu)
+      .on("postgres_changes", { event:"*", schema:"public", table:"menu_options" }, loadAdminMenu)
       .subscribe();
   }
 

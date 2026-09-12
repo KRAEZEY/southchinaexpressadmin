@@ -284,7 +284,7 @@
 
     .menu-option-row {
       display:grid;
-      grid-template-columns:1fr 100px auto auto;
+      grid-template-columns:minmax(120px,1fr) 100px auto auto auto;
       gap:7px;
       align-items:center;
       margin-top:7px;
@@ -1181,6 +1181,9 @@
                 <button class="menu-action-btn ${option.is_available ? "danger" : ""}" type="button" onclick="toggleMenuOption('${option.id}', ${!option.is_available})">
                   ${option.is_available ? "Sold Out" : "Available"}
                 </button>
+                <button class="menu-action-btn danger" type="button" onclick="deleteMenuOption('${option.id}', '${item.id}')">
+                  Delete
+                </button>
               </div>
             `).join("")}
             <div class="menu-admin-buttons">
@@ -1331,6 +1334,57 @@
     }
 
     showMessage("menuManagerMessage", `${name.trim()} added.`, "success");
+    await loadAdminMenu();
+  }
+
+  async function deleteMenuOption(optionId, itemId) {
+    const item = adminMenu.find(row => row.id === itemId);
+    const option = item?.menu_options?.find(row => row.id === optionId);
+    if (!option) return;
+
+    const confirmed = confirm(
+      `Delete "${option.label}" from ${item.name}?\n\nThis cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await db
+      .from("menu_options")
+      .delete()
+      .eq("id", optionId);
+
+    if (error) {
+      showMessage(
+        "menuManagerMessage",
+        "Could not delete option: " + error.message,
+        "error"
+      );
+      return;
+    }
+
+    // If the deleted option was the last option, give the item a safe
+    // temporary base price of $0.00 so the owner can enter the new price.
+    const remainingOptions = (item.menu_options || []).filter(
+      row => row.id !== optionId
+    );
+
+    if (remainingOptions.length === 0) {
+      const { error: priceError } = await db
+        .from("menu_items")
+        .update({ base_price: 0 })
+        .eq("id", itemId);
+
+      if (priceError) {
+        console.error("Could not restore base price after deleting last option:", priceError);
+      }
+    }
+
+    showMessage(
+      "menuManagerMessage",
+      `${option.label} deleted from ${item.name}.`,
+      "success"
+    );
+
     await loadAdminMenu();
   }
 

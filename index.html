@@ -210,6 +210,7 @@
 
     .menu-action-btn.secondary { background:#eee; color:#222; }
     .menu-action-btn.danger { background:#94181d; color:#fff; }
+    .menu-action-btn.delete-option { background:#e87512; color:#fff; }
 
     .menu-admin-grid {
       display:grid;
@@ -1181,7 +1182,7 @@
                 <button class="menu-action-btn ${option.is_available ? "danger" : ""}" type="button" onclick="toggleMenuOption('${option.id}', ${!option.is_available})">
                   ${option.is_available ? "Sold Out" : "Available"}
                 </button>
-                <button class="menu-action-btn danger" type="button" onclick="deleteMenuOption('${option.id}', '${item.id}')">
+                <button class="menu-action-btn delete-option" type="button" onclick="deleteMenuOption('${option.id}', '${item.id}')">
                   Delete
                 </button>
               </div>

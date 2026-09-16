@@ -1352,6 +1352,8 @@
     grid.innerHTML = adminMenu.map(item => {
       const options = [...(item.menu_options || [])]
         .sort((a,b) => Number(a.display_order || 0) - Number(b.display_order || 0));
+      const primaryOptions = options.filter(option => Number(option.option_group || 1) === 1);
+      const secondaryOptions = options.filter(option => Number(option.option_group || 1) === 2);
 
       return `
         <article class="menu-admin-card ${item.is_available ? "" : "sold-out"}">
@@ -1381,7 +1383,7 @@
             </div>
             <div>
               <label>Base price</label>
-              <input id="menu-price-${item.id}" type="number" step="0.01" min="0" value="${item.base_price ?? ""}" ${options.length ? "disabled" : ""} />
+              <input id="menu-price-${item.id}" type="number" step="0.01" min="0" value="${item.base_price ?? ""}" ${primaryOptions.length ? "disabled" : ""} />
             </div>
             <div>
               <label>Display order</label>
@@ -1400,8 +1402,9 @@
           </div>
 
           <div class="menu-options-admin">
-            <strong>Options / sizes</strong>
-            ${options.map(option => `
+            <strong>Options / Sizes 1</strong>
+            <div style="font-size:.78rem;color:#777;margin:4px 0 8px;">Main size/price choices. These prices are the full item price.</div>
+            ${primaryOptions.map(option => `
               <div class="menu-option-row">
                 <input id="option-label-${option.id}" value="${escapeHtml(option.label)}" />
                 <input id="option-price-${option.id}" type="number" min="0" step="0.01" value="${Number(option.price).toFixed(2)}" />
@@ -1409,13 +1412,30 @@
                 <button class="menu-action-btn ${option.is_available ? "danger" : ""}" type="button" onclick="toggleMenuOption('${option.id}', ${!option.is_available})">
                   ${option.is_available ? "Sold Out" : "Available"}
                 </button>
-                <button class="menu-action-btn delete-option" type="button" onclick="deleteMenuOption('${option.id}', '${item.id}')">
-                  Delete
-                </button>
+                <button class="menu-action-btn delete-option" type="button" onclick="deleteMenuOption('${option.id}', '${item.id}')">Delete</button>
               </div>
             `).join("")}
             <div class="menu-admin-buttons">
-              <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}')">+ Add Option</button>
+              <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}', 1)">+ Add Option / Size</button>
+            </div>
+          </div>
+
+          <div class="menu-options-admin">
+            <strong>Options / Sizes 2</strong>
+            <div style="font-size:.78rem;color:#777;margin:4px 0 8px;">Extra choice, such as an appetizer for a combo. Use $0.00 when included, or enter an upcharge.</div>
+            ${secondaryOptions.map(option => `
+              <div class="menu-option-row">
+                <input id="option-label-${option.id}" value="${escapeHtml(option.label)}" />
+                <input id="option-price-${option.id}" type="number" min="0" step="0.01" value="${Number(option.price).toFixed(2)}" />
+                <button class="menu-action-btn secondary" type="button" onclick="saveMenuOption('${option.id}')">Save</button>
+                <button class="menu-action-btn ${option.is_available ? "danger" : ""}" type="button" onclick="toggleMenuOption('${option.id}', ${!option.is_available})">
+                  ${option.is_available ? "Sold Out" : "Available"}
+                </button>
+                <button class="menu-action-btn delete-option" type="button" onclick="deleteMenuOption('${option.id}', '${item.id}')">Delete</button>
+              </div>
+            `).join("")}
+            <div class="menu-admin-buttons">
+              <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}', 2)">+ Add Second Choice</button>
             </div>
           </div>
         </article>
@@ -1428,6 +1448,7 @@
     if (!item) return;
 
     const options = item.menu_options || [];
+    const primaryOptions = options.filter(option => Number(option.option_group || 1) === 1);
     const basePriceRaw = document.getElementById(`menu-price-${itemId}`).value;
 
     const update = {
@@ -1435,7 +1456,7 @@
       description: document.getElementById(`menu-description-${itemId}`).value.trim(),
       emoji: document.getElementById(`menu-emoji-${itemId}`).value.trim() || "🥡",
       image_url: document.getElementById(`menu-image-${itemId}`).value.trim() || null,
-      base_price: options.length ? null : Number(basePriceRaw),
+      base_price: primaryOptions.length ? null : Number(basePriceRaw),
       display_order: Number(document.getElementById(`menu-order-${itemId}`).value || 0)
     };
 
@@ -1444,7 +1465,7 @@
       return;
     }
 
-    if (!options.length && (!Number.isFinite(update.base_price) || update.base_price < 0)) {
+    if (!primaryOptions.length && (!Number.isFinite(update.base_price) || update.base_price < 0)) {
       showMessage("menuManagerMessage", "Enter a valid price.", "error");
       return;
     }
@@ -1592,11 +1613,11 @@
 
     // If the deleted option was the last option, give the item a safe
     // temporary base price of $0.00 so the owner can enter the new price.
-    const remainingOptions = (item.menu_options || []).filter(
-      row => row.id !== optionId
+    const remainingPrimaryOptions = (item.menu_options || []).filter(
+      row => row.id !== optionId && Number(row.option_group || 1) === 1
     );
 
-    if (remainingOptions.length === 0) {
+    if (Number(option.option_group || 1) === 1 && remainingPrimaryOptions.length === 0) {
       const { error: priceError } = await db
         .from("menu_items")
         .update({ base_price: 0 })
@@ -1616,11 +1637,21 @@
     await loadAdminMenu();
   }
 
-  async function addMenuOption(itemId) {
-    const label = prompt("Option name (example: 10 piece):");
+  async function addMenuOption(itemId, optionGroup = 1) {
+    const isSecond = Number(optionGroup) === 2;
+    const label = prompt(
+      isSecond
+        ? "Second choice name (example: Egg Roll):"
+        : "Option name (example: 10 piece):"
+    );
     if (!label || !label.trim()) return;
 
-    const priceText = prompt("Option price:", "0.00");
+    const priceText = prompt(
+      isSecond
+        ? "Additional price for this choice (use 0.00 if included):"
+        : "Option price:",
+      "0.00"
+    );
     if (priceText === null) return;
 
     const price = Number(priceText);
@@ -1630,15 +1661,21 @@
     }
 
     const item = adminMenu.find(row => row.id === itemId);
-    const options = item?.menu_options || [];
-    const maxOrder = options.reduce((max, option) => Math.max(max, Number(option.display_order || 0)), 0);
+    const options = (item?.menu_options || []).filter(
+      option => Number(option.option_group || 1) === Number(optionGroup)
+    );
+    const maxOrder = options.reduce(
+      (max, option) => Math.max(max, Number(option.display_order || 0)),
+      0
+    );
 
     const { error } = await db.from("menu_options").insert({
       menu_item_id: itemId,
       label: label.trim(),
       price,
       is_available: true,
-      display_order: maxOrder + 10
+      display_order: maxOrder + 10,
+      option_group: Number(optionGroup)
     });
 
     if (error) {
@@ -1646,10 +1683,16 @@
       return;
     }
 
-    // Once an item has options, its price comes from the options.
-    await db.from("menu_items").update({ base_price: null }).eq("id", itemId);
+    // Group 1 controls the full item price. Group 2 is an add-on choice.
+    if (!isSecond) {
+      await db.from("menu_items").update({ base_price: null }).eq("id", itemId);
+    }
 
-    showMessage("menuManagerMessage", "Option added.", "success");
+    showMessage(
+      "menuManagerMessage",
+      isSecond ? "Second choice added." : "Option added.",
+      "success"
+    );
     await loadAdminMenu();
   }
 

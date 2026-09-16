@@ -504,6 +504,57 @@
       gap:16px;
     }
 
+    .completed-day-folder {
+      grid-column:1 / -1;
+      border:1px solid #d1d5db;
+      border-radius:12px;
+      background:#f8f9fa;
+      overflow:hidden;
+    }
+
+    .completed-day-folder > summary {
+      cursor:pointer;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:12px 14px;
+      font-weight:900;
+      color:#374151;
+      list-style:none;
+    }
+
+    .completed-day-folder > summary::-webkit-details-marker { display:none; }
+
+    .completed-day-folder > summary::before {
+      content:"▶";
+      font-size:.72rem;
+      margin-right:2px;
+    }
+
+    .completed-day-folder[open] > summary::before { content:"▼"; }
+
+    .completed-day-folder > summary small {
+      margin-left:auto;
+      font-weight:800;
+      color:#6b7280;
+      white-space:nowrap;
+    }
+
+    .completed-day-orders {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+      padding:14px;
+      border-top:1px solid #d1d5db;
+      background:white;
+    }
+
+    @media (max-width: 760px) {
+      .completed-day-orders { grid-template-columns:1fr; }
+      .completed-day-folder > summary { align-items:flex-start; }
+    }
+
     .order-card {
       background:#fff;
       border-radius:18px;
@@ -1875,6 +1926,23 @@
     return `<span class="payment-badge other">${escapeHtml(text)}</span>`;
   }
 
+  function completedDayKey(iso) {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function completedDayLabel(iso) {
+    return new Date(iso).toLocaleDateString([], {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+  }
+
   function renderOrders() {
     const grid = document.getElementById("ordersGrid");
     const list = filteredOrders();
@@ -1888,7 +1956,7 @@
       return;
     }
 
-    grid.innerHTML = list.map(order => {
+    const renderOrderCard = (order) => {
       const items = order.order_items || [];
       const next = nextStatus(order.order_status);
 
@@ -1975,7 +2043,47 @@
           </div>
         </article>
       `;
-    }).join("");
+    };
+
+    // Only the existing COMPLETED and ALL filter bubbles use day folders.
+    if (currentFilter === "COMPLETED" || currentFilter === "ALL") {
+      const normalOrders = currentFilter === "ALL"
+        ? list.filter(o => o.order_status !== "COMPLETED")
+        : [];
+
+      const completedOrders = list.filter(o => o.order_status === "COMPLETED");
+      const groups = new Map();
+
+      completedOrders.forEach(order => {
+        const key = completedDayKey(order.created_at);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(order);
+      });
+
+      let rendered = normalOrders.map(renderOrderCard).join("");
+
+      groups.forEach(dayOrders => {
+        const first = dayOrders[0];
+        const dayTotal = dayOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+        rendered += `
+          <details class="completed-day-folder">
+            <summary>
+              <span>${completedDayLabel(first.created_at)}</span>
+              <small>${dayOrders.length} order${dayOrders.length === 1 ? "" : "s"} · ${money(dayTotal)}</small>
+            </summary>
+            <div class="completed-day-orders">
+              ${dayOrders.map(renderOrderCard).join("")}
+            </div>
+          </details>
+        `;
+      });
+
+      grid.innerHTML = rendered || '<div class="empty">No orders in this view.</div>';
+      return;
+    }
+
+    grid.innerHTML = list.map(renderOrderCard).join("");
   }
 
   async function sendOrderSms(orderId, type) {

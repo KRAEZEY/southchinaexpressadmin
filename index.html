@@ -1320,6 +1320,8 @@
         is_visible,
         is_available,
         display_order,
+        option_group_1_name,
+        option_group_2_name,
         menu_options (
           id,
           label,
@@ -1403,8 +1405,12 @@
           </div>
 
           <div class="menu-options-admin">
-            <strong>Options / Sizes 1</strong>
-            <div style="font-size:.78rem;color:#777;margin:4px 0 8px;">Main size/price choices. These prices are the full item price.</div>
+            <strong>Option Group 1</strong>
+            <div class="menu-option-row" style="margin-top:8px;">
+              <input id="group1-name-${item.id}" value="${escapeHtml(item.option_group_1_name || "Options / Sizes 1")}" placeholder="Example: Entrée Size" />
+              <button class="menu-action-btn secondary" type="button" onclick="saveOptionGroupName('${item.id}', 1)">Save Name</button>
+            </div>
+            <div style="font-size:.78rem;color:#777;margin:4px 0 8px;">Main size/price choices. This name appears on the customer menu.</div>
             ${primaryOptions.map(option => `
               <div class="menu-option-row">
                 <input id="option-label-${option.id}" value="${escapeHtml(option.label)}" />
@@ -1422,8 +1428,12 @@
           </div>
 
           <div class="menu-options-admin">
-            <strong>Options / Sizes 2</strong>
-            <div style="font-size:.78rem;color:#777;margin:4px 0 8px;">Extra choice, such as an appetizer for a combo. Use $0.00 when included, or enter an upcharge.</div>
+            <strong>Option Group 2</strong>
+            <div class="menu-option-row" style="margin-top:8px;">
+              <input id="group2-name-${item.id}" value="${escapeHtml(item.option_group_2_name || "Options / Sizes 2")}" placeholder="Example: Appetizer Choice" />
+              <button class="menu-action-btn secondary" type="button" onclick="saveOptionGroupName('${item.id}', 2)">Save Name</button>
+            </div>
+            <div style="font-size:.78rem;color:#777;margin:4px 0 8px;">Extra choice, such as an appetizer for a combo. Use $0.00 when included, or enter an upcharge. This name appears on the customer menu.</div>
             ${secondaryOptions.map(option => `
               <div class="menu-option-row">
                 <input id="option-label-${option.id}" value="${escapeHtml(option.label)}" />
@@ -1635,6 +1645,37 @@
       "success"
     );
 
+    await loadAdminMenu();
+  }
+
+  async function saveOptionGroupName(itemId, groupNumber) {
+    clearMessage("menuManagerMessage");
+
+    const inputId = groupNumber === 1
+      ? `group1-name-${itemId}`
+      : `group2-name-${itemId}`;
+    const field = groupNumber === 1
+      ? "option_group_1_name"
+      : "option_group_2_name";
+    const input = document.getElementById(inputId);
+    const value = String(input?.value || "").trim();
+
+    if (!value) {
+      showMessage("menuManagerMessage", "Option group name cannot be blank.", "error");
+      return;
+    }
+
+    const { error } = await db
+      .from("menu_items")
+      .update({ [field]: value })
+      .eq("id", itemId);
+
+    if (error) {
+      showMessage("menuManagerMessage", "Could not save option group name: " + error.message, "error");
+      return;
+    }
+
+    showMessage("menuManagerMessage", "Option group name saved.", "success");
     await loadAdminMenu();
   }
 

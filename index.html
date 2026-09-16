@@ -413,6 +413,18 @@
     .sales-control label { margin-bottom:7px; }
     .sales-control input { background:#fff; }
 
+    .payroll-date-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .mini-label {
+      font-size:.72rem;
+      color:var(--gray-600);
+      margin-bottom:4px;
+    }
+
     .sales-result {
       margin-top:9px;
       font-size:1.35rem;
@@ -430,6 +442,7 @@
     @media (max-width:760px) {
       .sales-cards { grid-template-columns:1fr; }
       .sales-controls { grid-template-columns:1fr; }
+      .payroll-date-grid { grid-template-columns:1fr; }
       .sales-report-head { flex-direction:column; }
     }
 
@@ -862,10 +875,19 @@
 
         <div class="sales-controls">
           <div class="sales-control">
-            <label for="salesDatePicker">Sales by Date</label>
-            <input id="salesDatePicker" type="date" onchange="loadSalesByDate()" />
+            <label>Sales by Date Range</label>
+            <div class="payroll-date-grid">
+              <div>
+                <label for="salesStartDate" class="mini-label">Start date</label>
+                <input id="salesStartDate" type="date" onchange="loadSalesByDateRange()" />
+              </div>
+              <div>
+                <label for="salesEndDate" class="mini-label">End date</label>
+                <input id="salesEndDate" type="date" onchange="loadSalesByDateRange()" />
+              </div>
+            </div>
             <div id="salesDateResult" class="sales-result">$0.00
-              <small id="salesDateCount">Choose a date</small>
+              <small id="salesDateCount">Choose a date range</small>
             </div>
           </div>
 
@@ -1650,10 +1672,15 @@
       const todayText = localDateInputValue(now);
       const monthText = localMonthInputValue(now);
 
-      const datePicker = document.getElementById("salesDatePicker");
+      const startPicker = document.getElementById("salesStartDate");
+      const endPicker = document.getElementById("salesEndDate");
       const monthPicker = document.getElementById("salesMonthPicker");
 
-      if (datePicker && !datePicker.value) datePicker.value = todayText;
+      if (startPicker && !startPicker.value) {
+        const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        startPicker.value = localDateInputValue(defaultStart);
+      }
+      if (endPicker && !endPicker.value) endPicker.value = todayText;
       if (monthPicker && !monthPicker.value) monthPicker.value = monthText;
 
       const [todayStart, todayEnd] = localDayBounds(todayText);
@@ -1670,24 +1697,32 @@
       setSalesValue("salesToday", "salesTodayCount", todaySales);
       setSalesValue("salesMTD", "salesMTDCount", mtdSales);
 
-      await Promise.all([loadSalesByDate(), loadSalesByMonth()]);
+      await Promise.all([loadSalesByDateRange(), loadSalesByMonth()]);
     } catch (error) {
       console.error("Could not load sales report:", error);
       showMessage("dashboardMessage", "Could not load sales report: " + error.message, "error");
     }
   }
 
-  async function loadSalesByDate() {
-    const picker = document.getElementById("salesDatePicker");
-    if (!picker || !picker.value) return;
+  async function loadSalesByDateRange() {
+    const startPicker = document.getElementById("salesStartDate");
+    const endPicker = document.getElementById("salesEndDate");
+    if (!startPicker || !endPicker || !startPicker.value || !endPicker.value) return;
+
+    if (endPicker.value < startPicker.value) {
+      document.getElementById("salesDateResult").textContent = "$0.00";
+      document.getElementById("salesDateCount").textContent = "End date must be on or after start date";
+      return;
+    }
 
     try {
-      const [startIso, endIso] = localDayBounds(picker.value);
+      const [startIso] = localDayBounds(startPicker.value);
+      const [, endIso] = localDayBounds(endPicker.value);
       const result = await fetchPaidSales(startIso, endIso);
       setSalesValue("salesDateResult", "salesDateCount", result);
     } catch (error) {
-      console.error("Could not load date sales:", error);
-      showMessage("dashboardMessage", "Could not load sales for that date: " + error.message, "error");
+      console.error("Could not load date-range sales:", error);
+      showMessage("dashboardMessage", "Could not load sales for that date range: " + error.message, "error");
     }
   }
 

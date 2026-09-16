@@ -336,6 +336,21 @@
       margin-bottom:18px;
     }
 
+    .sales-report-details summary {
+      cursor:pointer;
+      font-weight:950;
+      font-size:1.08rem;
+      list-style:none;
+    }
+
+    .sales-report-details summary::-webkit-details-marker { display:none; }
+
+    .sales-report-details[open] summary {
+      margin-bottom:14px;
+      padding-bottom:12px;
+      border-bottom:1px solid var(--gray-200);
+    }
+
     .sales-report-head {
       display:flex;
       justify-content:space-between;
@@ -349,7 +364,7 @@
 
     .sales-cards {
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:12px;
       margin-bottom:14px;
     }
@@ -820,9 +835,11 @@
 
 
       <section class="sales-report">
+        <details class="sales-report-details">
+          <summary>💰 Sales Report</summary>
         <div class="sales-report-head">
           <div>
-            <h2>💰 Sales Report</h2>
+            <h2>Sales Details</h2>
             <p>Paid sales only. Cancelled and unpaid orders are not included.</p>
           </div>
           <button class="menu-action-btn secondary" type="button" onclick="loadSalesSummary()">Refresh Sales</button>
@@ -841,11 +858,6 @@
             <div id="salesMTDCount" class="sales-card-sub">0 paid orders</div>
           </div>
 
-          <div class="sales-card">
-            <div class="sales-card-label">This Month</div>
-            <div id="salesThisMonth" class="sales-card-value">$0.00</div>
-            <div id="salesThisMonthCount" class="sales-card-sub">0 paid orders</div>
-          </div>
         </div>
 
         <div class="sales-controls">
@@ -865,6 +877,7 @@
             </div>
           </div>
         </div>
+        </details>
       </section>
 
       <section class="summary">
@@ -1649,15 +1662,13 @@
       const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       const mtdEnd = tomorrow < new Date(monthEnd) ? tomorrow.toISOString() : monthEnd;
 
-      const [todaySales, mtdSales, monthSales] = await Promise.all([
+      const [todaySales, mtdSales] = await Promise.all([
         fetchPaidSales(todayStart, todayEnd),
-        fetchPaidSales(monthStart, mtdEnd),
-        fetchPaidSales(monthStart, monthEnd)
+        fetchPaidSales(monthStart, mtdEnd)
       ]);
 
       setSalesValue("salesToday", "salesTodayCount", todaySales);
       setSalesValue("salesMTD", "salesMTDCount", mtdSales);
-      setSalesValue("salesThisMonth", "salesThisMonthCount", monthSales);
 
       await Promise.all([loadSalesByDate(), loadSalesByMonth()]);
     } catch (error) {

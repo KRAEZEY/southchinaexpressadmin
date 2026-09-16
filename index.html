@@ -326,6 +326,98 @@
       .menu-option-row button { width:100%; }
     }
 
+
+    .sales-report {
+      background:#fff;
+      border:1px solid #eadfce;
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:16px;
+      margin-bottom:18px;
+    }
+
+    .sales-report-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .sales-report-head h2 { margin:0 0 4px; font-size:1.2rem; }
+    .sales-report-head p { margin:0; color:var(--gray-600); font-size:.86rem; font-weight:700; }
+
+    .sales-cards {
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:12px;
+      margin-bottom:14px;
+    }
+
+    .sales-card {
+      border:1px solid var(--gray-200);
+      border-radius:14px;
+      padding:14px;
+      background:#fcfcfc;
+    }
+
+    .sales-card-label {
+      color:var(--gray-600);
+      font-size:.78rem;
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.45px;
+    }
+
+    .sales-card-value {
+      font-size:1.75rem;
+      font-weight:1000;
+      margin-top:4px;
+    }
+
+    .sales-card-sub {
+      color:var(--gray-600);
+      font-size:.78rem;
+      font-weight:700;
+      margin-top:3px;
+    }
+
+    .sales-controls {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .sales-control {
+      border:1px solid var(--gray-200);
+      border-radius:14px;
+      padding:12px;
+      background:#fffaf1;
+    }
+
+    .sales-control label { margin-bottom:7px; }
+    .sales-control input { background:#fff; }
+
+    .sales-result {
+      margin-top:9px;
+      font-size:1.35rem;
+      font-weight:1000;
+    }
+
+    .sales-result small {
+      display:block;
+      color:var(--gray-600);
+      font-size:.75rem;
+      font-weight:700;
+      margin-top:3px;
+    }
+
+    @media (max-width:760px) {
+      .sales-cards { grid-template-columns:1fr; }
+      .sales-controls { grid-template-columns:1fr; }
+      .sales-report-head { flex-direction:column; }
+    }
+
     .summary {
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -726,6 +818,55 @@
         </details>
       </section>
 
+
+      <section class="sales-report">
+        <div class="sales-report-head">
+          <div>
+            <h2>💰 Sales Report</h2>
+            <p>Paid sales only. Cancelled and unpaid orders are not included.</p>
+          </div>
+          <button class="menu-action-btn secondary" type="button" onclick="loadSalesSummary()">Refresh Sales</button>
+        </div>
+
+        <div class="sales-cards">
+          <div class="sales-card">
+            <div class="sales-card-label">Today's Sales</div>
+            <div id="salesToday" class="sales-card-value">$0.00</div>
+            <div id="salesTodayCount" class="sales-card-sub">0 paid orders</div>
+          </div>
+
+          <div class="sales-card">
+            <div class="sales-card-label">Month to Date</div>
+            <div id="salesMTD" class="sales-card-value">$0.00</div>
+            <div id="salesMTDCount" class="sales-card-sub">0 paid orders</div>
+          </div>
+
+          <div class="sales-card">
+            <div class="sales-card-label">This Month</div>
+            <div id="salesThisMonth" class="sales-card-value">$0.00</div>
+            <div id="salesThisMonthCount" class="sales-card-sub">0 paid orders</div>
+          </div>
+        </div>
+
+        <div class="sales-controls">
+          <div class="sales-control">
+            <label for="salesDatePicker">Sales by Date</label>
+            <input id="salesDatePicker" type="date" onchange="loadSalesByDate()" />
+            <div id="salesDateResult" class="sales-result">$0.00
+              <small id="salesDateCount">Choose a date</small>
+            </div>
+          </div>
+
+          <div class="sales-control">
+            <label for="salesMonthPicker">Sales by Month</label>
+            <input id="salesMonthPicker" type="month" onchange="loadSalesByMonth()" />
+            <div id="salesMonthResult" class="sales-result">$0.00
+              <small id="salesMonthCount">Choose a month</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="summary">
         <div class="summary-card">
           <div class="summary-label">New</div>
@@ -958,7 +1099,7 @@
       loginCard.style.display = "none";
       dashboard.style.display = "block";
       topActions.style.display = "flex";
-      await Promise.all([loadOrders(), loadOrderingStatus(), loadAdminMenu()]);
+      await Promise.all([loadOrders(), loadOrderingStatus(), loadAdminMenu(), loadSalesSummary()]);
       subscribeToOrders();
       subscribeToOrderingStatus();
       subscribeToMenuAdmin();
@@ -1436,6 +1577,123 @@
       .subscribe();
   }
 
+
+  function localDateInputValue(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function localMonthInputValue(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    return `${y}-${m}`;
+  }
+
+  function localDayBounds(dateText) {
+    const [y, m, d] = dateText.split("-").map(Number);
+    const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const end = new Date(y, m - 1, d + 1, 0, 0, 0, 0);
+    return [start.toISOString(), end.toISOString()];
+  }
+
+  function localMonthBounds(monthText) {
+    const [y, m] = monthText.split("-").map(Number);
+    const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+    const end = new Date(y, m, 1, 0, 0, 0, 0);
+    return [start.toISOString(), end.toISOString()];
+  }
+
+  async function fetchPaidSales(startIso, endIso) {
+    const { data, error } = await db
+      .from("orders")
+      .select("id,total,created_at,payment_status,order_status")
+      .gte("created_at", startIso)
+      .lt("created_at", endIso)
+      .eq("payment_status", "PAID")
+      .neq("order_status", "CANCELLED")
+      .order("created_at", { ascending:true });
+
+    if (error) throw error;
+
+    const rows = data || [];
+    return {
+      total: rows.reduce((sum, order) => sum + Number(order.total || 0), 0),
+      count: rows.length
+    };
+  }
+
+  function setSalesValue(valueId, countId, result) {
+    const value = document.getElementById(valueId);
+    const count = document.getElementById(countId);
+    if (value) value.textContent = money(result.total);
+    if (count) count.textContent = `${result.count} paid order${result.count === 1 ? "" : "s"}`;
+  }
+
+  async function loadSalesSummary() {
+    try {
+      const now = new Date();
+      const todayText = localDateInputValue(now);
+      const monthText = localMonthInputValue(now);
+
+      const datePicker = document.getElementById("salesDatePicker");
+      const monthPicker = document.getElementById("salesMonthPicker");
+
+      if (datePicker && !datePicker.value) datePicker.value = todayText;
+      if (monthPicker && !monthPicker.value) monthPicker.value = monthText;
+
+      const [todayStart, todayEnd] = localDayBounds(todayText);
+      const [monthStart, monthEnd] = localMonthBounds(monthText);
+
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const mtdEnd = tomorrow < new Date(monthEnd) ? tomorrow.toISOString() : monthEnd;
+
+      const [todaySales, mtdSales, monthSales] = await Promise.all([
+        fetchPaidSales(todayStart, todayEnd),
+        fetchPaidSales(monthStart, mtdEnd),
+        fetchPaidSales(monthStart, monthEnd)
+      ]);
+
+      setSalesValue("salesToday", "salesTodayCount", todaySales);
+      setSalesValue("salesMTD", "salesMTDCount", mtdSales);
+      setSalesValue("salesThisMonth", "salesThisMonthCount", monthSales);
+
+      await Promise.all([loadSalesByDate(), loadSalesByMonth()]);
+    } catch (error) {
+      console.error("Could not load sales report:", error);
+      showMessage("dashboardMessage", "Could not load sales report: " + error.message, "error");
+    }
+  }
+
+  async function loadSalesByDate() {
+    const picker = document.getElementById("salesDatePicker");
+    if (!picker || !picker.value) return;
+
+    try {
+      const [startIso, endIso] = localDayBounds(picker.value);
+      const result = await fetchPaidSales(startIso, endIso);
+      setSalesValue("salesDateResult", "salesDateCount", result);
+    } catch (error) {
+      console.error("Could not load date sales:", error);
+      showMessage("dashboardMessage", "Could not load sales for that date: " + error.message, "error");
+    }
+  }
+
+  async function loadSalesByMonth() {
+    const picker = document.getElementById("salesMonthPicker");
+    if (!picker || !picker.value) return;
+
+    try {
+      const [startIso, endIso] = localMonthBounds(picker.value);
+      const result = await fetchPaidSales(startIso, endIso);
+      setSalesValue("salesMonthResult", "salesMonthCount", result);
+    } catch (error) {
+      console.error("Could not load month sales:", error);
+      showMessage("dashboardMessage", "Could not load sales for that month: " + error.message, "error");
+    }
+  }
+
   async function loadOrders() {
     clearMessage("dashboardMessage");
 
@@ -1483,6 +1741,7 @@
     orders = data || [];
     renderSummary();
     renderOrders();
+    loadSalesSummary();
   }
 
   function renderSummary() {

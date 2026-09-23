@@ -805,6 +805,45 @@
       to { transform:scale(1.025); box-shadow:0 24px 90px rgba(210,31,38,.65); }
     }
 
+
+    /* === SERVICE-DASHBOARD CLEANUP === */
+    .operations-heading { display:flex; justify-content:space-between; align-items:end; gap:12px; margin:2px 0 12px; }
+    .operations-heading h2 { margin:0; font-size:1.35rem; }
+    .operations-heading p { margin:4px 0 0; color:var(--gray-600); font-size:.84rem; font-weight:700; }
+    .management-tools { margin-top:22px; padding-top:18px; border-top:2px solid #e5dacb; }
+    .management-tools-title { margin:0 0 10px; font-size:.82rem; font-weight:1000; color:var(--gray-600); text-transform:uppercase; letter-spacing:.8px; }
+    .ordering-control { border-left:6px solid var(--gray-300); padding:14px 16px; }
+    .ordering-control.is-open { border-left-color:var(--green); }
+    .ordering-control.is-closed { border-left-color:var(--red); }
+    .summary-card { box-shadow:0 5px 16px rgba(0,0,0,.07); }
+    .summary-card[data-summary="NEW"] { border-top:5px solid var(--red); }
+    .summary-card[data-summary="PREPARING"] { border-top:5px solid var(--orange); }
+    .summary-card[data-summary="READY"] { border-top:5px solid var(--green); }
+    .summary-card[data-summary="SALES"] { border-top:5px solid var(--gold); }
+    .filters { position:sticky; top:76px; z-index:35; padding:9px; margin:0 0 14px; background:rgba(255,250,241,.96); border:1px solid #eadfce; border-radius:14px; box-shadow:0 5px 15px rgba(0,0,0,.06); backdrop-filter:blur(7px); }
+    .filter-btn[data-filter="NEW"].active { background:var(--red); border-color:var(--red); }
+    .filter-btn[data-filter="PREPARING"].active { background:var(--orange); border-color:var(--orange); }
+    .filter-btn[data-filter="READY"].active { background:var(--green); border-color:var(--green); }
+    .order-card { box-shadow:0 6px 20px rgba(0,0,0,.09); }
+    .order-card[data-status="NEW"] { border:2px solid rgba(197,22,29,.35); }
+    .order-card[data-status="PREPARING"] { border:2px solid rgba(195,106,19,.38); }
+    .order-card[data-status="READY"] { border:2px solid rgba(24,134,75,.38); }
+    .order-card[data-status="NEW"] .order-number { font-size:1.2rem; }
+    .order-head { padding:12px 14px; }
+    .order-body { padding:13px 14px; }
+    .actions { gap:7px; }
+    .action-btn { min-height:44px; }
+    .menu-manager, .sales-report { margin-bottom:12px; box-shadow:0 5px 16px rgba(0,0,0,.07); }
+    @media (max-width:650px) {
+      .operations-heading { align-items:flex-start; }
+      .filters { top:67px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; }
+      .filters::-webkit-scrollbar { display:none; }
+      .filter-btn { flex:0 0 auto; }
+      .order-head { padding:11px 12px; }
+      .order-body { padding:12px; }
+      .management-tools { margin-top:18px; }
+    }
+
   </style>
 </head>
 
@@ -875,6 +914,46 @@
       </section>
 
 
+      <div class="operations-heading">
+        <div>
+          <h2>Live Orders</h2>
+          <p>New, preparing and ready orders are kept front and center during service.</p>
+        </div>
+      </div>
+
+      <section class="summary">
+        <div class="summary-card" data-summary="NEW">
+          <div class="summary-label">New</div>
+          <div id="newCount" class="summary-value">0</div>
+        </div>
+        <div class="summary-card" data-summary="PREPARING">
+          <div class="summary-label">Preparing</div>
+          <div id="preparingCount" class="summary-value">0</div>
+        </div>
+        <div class="summary-card" data-summary="READY">
+          <div class="summary-label">Ready</div>
+          <div id="readyCount" class="summary-value">0</div>
+        </div>
+        <div class="summary-card" data-summary="SALES">
+          <div class="summary-label">Today's Sales</div>
+          <div id="todaySales" class="summary-value">$0</div>
+        </div>
+      </section>
+
+      <div class="filters">
+        <button class="filter-btn active" data-filter="ACTIVE" onclick="setFilter('ACTIVE', this)">Active</button>
+        <button class="filter-btn" data-filter="NEW" onclick="setFilter('NEW', this)">New</button>
+        <button class="filter-btn" data-filter="PREPARING" onclick="setFilter('PREPARING', this)">Preparing</button>
+        <button class="filter-btn" data-filter="READY" onclick="setFilter('READY', this)">Ready</button>
+        <button class="filter-btn" data-filter="COMPLETED" onclick="setFilter('COMPLETED', this)">Completed</button>
+        <button class="filter-btn" data-filter="ALL" onclick="setFilter('ALL', this)">All</button>
+      </div>
+
+      <div id="ordersGrid" class="orders-grid">
+        <div class="loading">Loading orders…</div>
+      </div>
+      <section class="management-tools">
+        <div class="management-tools-title">Management Tools</div>
       <section class="menu-manager">
         <details class="menu-manager-details">
           <summary>🍜 Menu Manager</summary>
@@ -953,37 +1032,7 @@
         </details>
       </section>
 
-      <section class="summary">
-        <div class="summary-card">
-          <div class="summary-label">New</div>
-          <div id="newCount" class="summary-value">0</div>
-        </div>
-        <div class="summary-card">
-          <div class="summary-label">Preparing</div>
-          <div id="preparingCount" class="summary-value">0</div>
-        </div>
-        <div class="summary-card">
-          <div class="summary-label">Ready</div>
-          <div id="readyCount" class="summary-value">0</div>
-        </div>
-        <div class="summary-card">
-          <div class="summary-label">Today's Sales</div>
-          <div id="todaySales" class="summary-value">$0</div>
-        </div>
       </section>
-
-      <div class="filters">
-        <button class="filter-btn active" data-filter="ACTIVE" onclick="setFilter('ACTIVE', this)">Active</button>
-        <button class="filter-btn" data-filter="NEW" onclick="setFilter('NEW', this)">New</button>
-        <button class="filter-btn" data-filter="PREPARING" onclick="setFilter('PREPARING', this)">Preparing</button>
-        <button class="filter-btn" data-filter="READY" onclick="setFilter('READY', this)">Ready</button>
-        <button class="filter-btn" data-filter="COMPLETED" onclick="setFilter('COMPLETED', this)">Completed</button>
-        <button class="filter-btn" data-filter="ALL" onclick="setFilter('ALL', this)">All</button>
-      </div>
-
-      <div id="ordersGrid" class="orders-grid">
-        <div class="loading">Loading orders…</div>
-      </div>
     </section>
   </main>
 
@@ -1231,6 +1280,12 @@
     const button = document.getElementById("orderingToggle");
 
     button.disabled = false;
+
+    const control = document.querySelector(".ordering-control");
+    if (control) {
+      control.classList.toggle("is-open", orderingOpen);
+      control.classList.toggle("is-closed", !orderingOpen);
+    }
 
     if (orderingOpen) {
       status.textContent = "🟢 ACCEPTING ONLINE ORDERS";

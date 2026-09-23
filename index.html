@@ -1322,6 +1322,7 @@
         display_order,
         option_group_1_name,
         option_group_2_name,
+        option_group_3_name,
         menu_options (
           id,
           label,
@@ -1357,6 +1358,7 @@
         .sort((a,b) => Number(a.display_order || 0) - Number(b.display_order || 0));
       const primaryOptions = options.filter(option => Number(option.option_group || 1) === 1);
       const secondaryOptions = options.filter(option => Number(option.option_group || 1) === 2);
+      const tertiaryOptions = options.filter(option => Number(option.option_group || 1) === 3);
 
       return `
         <article class="menu-admin-card ${item.is_available ? "" : "sold-out"}">
@@ -1447,6 +1449,29 @@
             `).join("")}
             <div class="menu-admin-buttons">
               <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}', 2)">+ Add Second Choice</button>
+            </div>
+          </div>
+
+          <div class="menu-options-admin">
+            <strong>Option Group 3</strong>
+            <div class="menu-option-row" style="margin-top:8px;">
+              <input id="group3-name-${item.id}" value="${escapeHtml(item.option_group_3_name || "Options / Sizes 3")}" placeholder="Example: Side Choice" />
+              <button class="menu-action-btn secondary" type="button" onclick="saveOptionGroupName('${item.id}', 3)">Save Name</button>
+            </div>
+            <div style="font-size:.78rem;color:#777;margin:4px 0 8px;">Third optional choice group. Use $0.00 when included, or enter an upcharge. This name appears on the customer menu.</div>
+            ${tertiaryOptions.map(option => `
+              <div class="menu-option-row">
+                <input id="option-label-${option.id}" value="${escapeHtml(option.label)}" />
+                <input id="option-price-${option.id}" type="number" min="0" step="0.01" value="${Number(option.price).toFixed(2)}" />
+                <button class="menu-action-btn secondary" type="button" onclick="saveMenuOption('${option.id}')">Save</button>
+                <button class="menu-action-btn ${option.is_available ? "danger" : ""}" type="button" onclick="toggleMenuOption('${option.id}', ${!option.is_available})">
+                  ${option.is_available ? "Sold Out" : "Available"}
+                </button>
+                <button class="menu-action-btn delete-option" type="button" onclick="deleteMenuOption('${option.id}', '${item.id}')">Delete</button>
+              </div>
+            `).join("")}
+            <div class="menu-admin-buttons">
+              <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}', 3)">+ Add Third Choice</button>
             </div>
           </div>
         </article>
@@ -1653,10 +1678,14 @@
 
     const inputId = groupNumber === 1
       ? `group1-name-${itemId}`
-      : `group2-name-${itemId}`;
+      : groupNumber === 2
+        ? `group2-name-${itemId}`
+        : `group3-name-${itemId}`;
     const field = groupNumber === 1
       ? "option_group_1_name"
-      : "option_group_2_name";
+      : groupNumber === 2
+        ? "option_group_2_name"
+        : "option_group_3_name";
     const input = document.getElementById(inputId);
     const value = String(input?.value || "").trim();
 
@@ -1680,16 +1709,19 @@
   }
 
   async function addMenuOption(itemId, optionGroup = 1) {
-    const isSecond = Number(optionGroup) === 2;
-    const label = prompt(
-      isSecond
+    const group = Number(optionGroup);
+    const isAddOn = group === 2 || group === 3;
+    const labelPrompt = group === 3
+      ? "Third choice name (example: Side Salad):"
+      : group === 2
         ? "Second choice name (example: Egg Roll):"
-        : "Option name (example: 10 piece):"
-    );
+        : "Option name (example: 10 piece):";
+
+    const label = prompt(labelPrompt);
     if (!label || !label.trim()) return;
 
     const priceText = prompt(
-      isSecond
+      isAddOn
         ? "Additional price for this choice (use 0.00 if included):"
         : "Option price:",
       "0.00"
@@ -1704,7 +1736,7 @@
 
     const item = adminMenu.find(row => row.id === itemId);
     const options = (item?.menu_options || []).filter(
-      option => Number(option.option_group || 1) === Number(optionGroup)
+      option => Number(option.option_group || 1) === group
     );
     const maxOrder = options.reduce(
       (max, option) => Math.max(max, Number(option.display_order || 0)),
@@ -1717,7 +1749,7 @@
       price,
       is_available: true,
       display_order: maxOrder + 10,
-      option_group: Number(optionGroup)
+      option_group: group
     });
 
     if (error) {
@@ -1725,16 +1757,18 @@
       return;
     }
 
-    // Group 1 controls the full item price. Group 2 is an add-on choice.
-    if (!isSecond) {
+    // Group 1 controls the full item price. Groups 2 and 3 are add-on choices.
+    if (group === 1) {
       await db.from("menu_items").update({ base_price: null }).eq("id", itemId);
     }
 
-    showMessage(
-      "menuManagerMessage",
-      isSecond ? "Second choice added." : "Option added.",
-      "success"
-    );
+    const successText = group === 3
+      ? "Third choice added."
+      : group === 2
+        ? "Second choice added."
+        : "Option added.";
+
+    showMessage("menuManagerMessage", successText, "success");
     await loadAdminMenu();
   }
 

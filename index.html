@@ -922,6 +922,15 @@
     }
     .menu-options-content { padding:0 13px 13px; border-top:1px solid #eadfce; }
 
+
+    /* Drag-and-drop menu ordering */
+    .menu-drag-handle{display:inline-grid;place-items:center;width:36px;height:36px;border:1px solid #d8cbbb;border-radius:9px;background:#fff;color:#6b6258;font-size:1.15rem;font-weight:1000;cursor:grab;touch-action:none;flex:0 0 auto}
+    .menu-drag-handle:active{cursor:grabbing}
+    .menu-admin-card.menu-dragging{opacity:.48}
+    .menu-admin-card.menu-drop-before{box-shadow:0 -4px 0 var(--red),0 6px 20px rgba(0,0,0,.09)}
+    .menu-admin-card.menu-drop-after{box-shadow:0 4px 0 var(--red),0 6px 20px rgba(0,0,0,.09)}
+    .menu-order-hint{margin:0 0 10px;color:#777;font-size:.78rem;font-weight:700}
+    body.menu-reordering{user-select:none;-webkit-user-select:none}
   </style>
 </head>
 
@@ -1048,6 +1057,7 @@
           </div>
 
           <div id="menuManagerMessage" class="message"></div>
+          <div class="menu-order-hint">Drag the ☰ handle to rearrange menu items. Changes save automatically.</div>
           <div id="menuAdminGrid" class="menu-admin-grid">
             <div class="menu-empty">Loading menu…</div>
           </div>
@@ -1494,10 +1504,11 @@
       const tertiaryOptions = options.filter(option => Number(option.option_group || 1) === 3);
 
       return `
-        <article class="menu-admin-card ${item.is_available ? "" : "sold-out"}">
+        <article class="menu-admin-card ${item.is_available ? "" : "sold-out"}" data-menu-item-id="${item.id}">
           <details class="menu-item-collapse">
             <summary>
               <span class="menu-item-summary-main">
+                <span class="menu-drag-handle" title="Drag to reorder" aria-label="Drag ${escapeHtml(item.name)} to reorder">☰</span>
                 <span class="menu-item-summary-name">${escapeHtml(item.emoji || "🥡")} ${escapeHtml(item.name)}</span>
                 <span class="menu-pill ${item.is_available ? "available" : "sold"}">
                   ${item.is_available ? "AVAILABLE" : "SOLD OUT"}
@@ -1637,6 +1648,108 @@
         </article>
       `;
     }).join("");
+    initMenuDragAndDrop();
+  }
+
+  let menuDragState = null;
+
+  function clearMenuDropIndicators() {
+    document.querySelectorAll("#menuAdminGrid .menu-admin-card").forEach(card => {
+      card.classList.remove("menu-drop-before", "menu-drop-after");
+    });
+  }
+
+  function getMenuCardAtPoint(x, y, excludeCard) {
+    return [...document.querySelectorAll("#menuAdminGrid .menu-admin-card")]
+      .filter(card => card !== excludeCard)
+      .find(card => {
+        const r = card.getBoundingClientRect();
+        return y >= r.top && y <= r.bottom && x >= r.left - 50 && x <= r.right + 50;
+      }) || null;
+  }
+
+  async function persistMenuCardOrder() {
+    const cards = [...document.querySelectorAll("#menuAdminGrid .menu-admin-card")];
+    const updates = cards.map((card,index) => ({
+      id: card.dataset.menuItemId,
+      display_order: (index + 1) * 10
+    }));
+
+    showMessage("menuManagerMessage","Saving menu order…","success");
+
+    for (const row of updates) {
+      const { error } = await db.from("menu_items")
+        .update({ display_order: row.display_order })
+        .eq("id", row.id);
+      if (error) {
+        showMessage("menuManagerMessage","Could not save menu order: " + error.message,"error");
+        await loadAdminMenu();
+        return;
+      }
+    }
+
+    adminMenu.forEach(item => {
+      const row = updates.find(u => u.id === item.id);
+      if (row) item.display_order = row.display_order;
+    });
+    showMessage("menuManagerMessage","Menu order saved.","success");
+  }
+
+  function initMenuDragAndDrop() {
+    document.querySelectorAll("#menuAdminGrid .menu-drag-handle").forEach(handle => {
+      handle.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); });
+
+      handle.addEventListener("pointerdown", e => {
+        if (e.button !== undefined && e.button !== 0) return;
+        const card = handle.closest(".menu-admin-card");
+        if (!card) return;
+        e.preventDefault(); e.stopPropagation();
+        handle.setPointerCapture?.(e.pointerId);
+        menuDragState={card,pointerId:e.pointerId,target:null,before:null,moved:false};
+        card.classList.add("menu-dragging");
+        document.body.classList.add("menu-reordering");
+      });
+
+      handle.addEventListener("pointermove", e => {
+        if (!menuDragState || menuDragState.pointerId !== e.pointerId) return;
+        e.preventDefault();
+        clearMenuDropIndicators();
+        const target=getMenuCardAtPoint(e.clientX,e.clientY,menuDragState.card);
+        menuDragState.target=target;
+        if (target) {
+          const r=target.getBoundingClientRect();
+          menuDragState.before=e.clientY < r.top+r.height/2;
+          target.classList.add(menuDragState.before ? "menu-drop-before" : "menu-drop-after");
+        }
+        menuDragState.moved=true;
+        if(e.clientY<70) window.scrollBy(0,-14);
+        else if(e.clientY>window.innerHeight-70) window.scrollBy(0,14);
+      });
+
+      handle.addEventListener("pointerup", async e => {
+        if (!menuDragState || menuDragState.pointerId !== e.pointerId) return;
+        e.preventDefault(); e.stopPropagation();
+        const {card,target,before,moved}=menuDragState;
+        card.classList.remove("menu-dragging");
+        clearMenuDropIndicators();
+        document.body.classList.remove("menu-reordering");
+        menuDragState=null;
+        if(moved && target && card!==target){
+          const grid=document.getElementById("menuAdminGrid");
+          if(before) grid.insertBefore(card,target);
+          else grid.insertBefore(card,target.nextSibling);
+          await persistMenuCardOrder();
+        }
+      });
+
+      handle.addEventListener("pointercancel", e => {
+        if (!menuDragState || menuDragState.pointerId !== e.pointerId) return;
+        menuDragState.card.classList.remove("menu-dragging");
+        clearMenuDropIndicators();
+        document.body.classList.remove("menu-reordering");
+        menuDragState=null;
+      });
+    });
   }
 
   async function saveMenuItem(itemId) {

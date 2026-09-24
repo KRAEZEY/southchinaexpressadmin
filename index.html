@@ -844,6 +844,84 @@
       .management-tools { margin-top:18px; }
     }
 
+
+    /* Menu Manager: collapse each complete menu item under its item name */
+    details.menu-item-collapse {
+      padding:0;
+      overflow:hidden;
+    }
+    details.menu-item-collapse > summary {
+      list-style:none;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 15px;
+      background:#fffaf1;
+      user-select:none;
+    }
+    details.menu-item-collapse > summary::-webkit-details-marker { display:none; }
+    details.menu-item-collapse > summary::after {
+      content:"▼";
+      flex:0 0 auto;
+      font-size:.8rem;
+      color:#777;
+      transition:transform .18s ease;
+    }
+    details.menu-item-collapse[open] > summary::after { transform:rotate(180deg); }
+    .menu-item-summary-main {
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .menu-item-summary-name {
+      font-weight:1000;
+      font-size:1rem;
+    }
+    .menu-item-collapse-content {
+      padding:0 14px 14px;
+      border-top:1px solid #eadfce;
+    }
+
+    /* Option groups remain independently collapsible after opening an item */
+    details.menu-options-admin { padding:0; overflow:hidden; }
+    details.menu-options-admin > summary {
+      list-style:none;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 13px;
+      font-weight:900;
+      background:#fffaf1;
+      user-select:none;
+    }
+    details.menu-options-admin > summary::-webkit-details-marker { display:none; }
+    details.menu-options-admin > summary::after {
+      content:"▼";
+      flex:0 0 auto;
+      font-size:.75rem;
+      color:#777;
+      transition:transform .18s ease;
+    }
+    details.menu-options-admin[open] > summary::after { transform:rotate(180deg); }
+    .menu-options-summary-text { display:flex; align-items:center; gap:8px; min-width:0; }
+    .menu-options-summary-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .menu-options-count {
+      flex:0 0 auto;
+      padding:3px 8px;
+      border-radius:999px;
+      background:#eee3d2;
+      color:#665746;
+      font-size:.72rem;
+      font-weight:900;
+    }
+    .menu-options-content { padding:0 13px 13px; border-top:1px solid #eadfce; }
+
   </style>
 </head>
 
@@ -1417,13 +1495,17 @@
 
       return `
         <article class="menu-admin-card ${item.is_available ? "" : "sold-out"}">
-          <div class="menu-admin-title">
-            <strong>${escapeHtml(item.emoji || "🥡")} ${escapeHtml(item.name)}</strong>
-            <span class="menu-pill ${item.is_available ? "available" : "sold"}">
-              ${item.is_available ? "AVAILABLE" : "SOLD OUT"}
-            </span>
-          </div>
+          <details class="menu-item-collapse">
+            <summary>
+              <span class="menu-item-summary-main">
+                <span class="menu-item-summary-name">${escapeHtml(item.emoji || "🥡")} ${escapeHtml(item.name)}</span>
+                <span class="menu-pill ${item.is_available ? "available" : "sold"}">
+                  ${item.is_available ? "AVAILABLE" : "SOLD OUT"}
+                </span>
+              </span>
+            </summary>
 
+            <div class="menu-item-collapse-content">
           <div class="menu-form-grid">
             <div>
               <label>Name</label>
@@ -1461,8 +1543,14 @@
             </button>
           </div>
 
-          <div class="menu-options-admin">
-            <strong>Option Group 1</strong>
+          <details class="menu-options-admin">
+            <summary>
+              <span class="menu-options-summary-text">
+                <span class="menu-options-summary-name">${escapeHtml(item.option_group_1_name || "Options / Sizes 1")}</span>
+                <span class="menu-options-count">${primaryOptions.length} option${primaryOptions.length === 1 ? "" : "s"}</span>
+              </span>
+            </summary>
+            <div class="menu-options-content">
             <div class="menu-option-row" style="margin-top:8px;">
               <input id="group1-name-${item.id}" value="${escapeHtml(item.option_group_1_name || "Options / Sizes 1")}" placeholder="Example: Entrée Size" />
               <button class="menu-action-btn secondary" type="button" onclick="saveOptionGroupName('${item.id}', 1)">Save Name</button>
@@ -1482,10 +1570,17 @@
             <div class="menu-admin-buttons">
               <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}', 1)">+ Add Option / Size</button>
             </div>
-          </div>
+            </div>
+          </details>
 
-          <div class="menu-options-admin">
-            <strong>Option Group 2</strong>
+          <details class="menu-options-admin">
+            <summary>
+              <span class="menu-options-summary-text">
+                <span class="menu-options-summary-name">${escapeHtml(item.option_group_2_name || "Options / Sizes 2")}</span>
+                <span class="menu-options-count">${secondaryOptions.length} option${secondaryOptions.length === 1 ? "" : "s"}</span>
+              </span>
+            </summary>
+            <div class="menu-options-content">
             <div class="menu-option-row" style="margin-top:8px;">
               <input id="group2-name-${item.id}" value="${escapeHtml(item.option_group_2_name || "Options / Sizes 2")}" placeholder="Example: Appetizer Choice" />
               <button class="menu-action-btn secondary" type="button" onclick="saveOptionGroupName('${item.id}', 2)">Save Name</button>
@@ -1505,10 +1600,17 @@
             <div class="menu-admin-buttons">
               <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}', 2)">+ Add Second Choice</button>
             </div>
-          </div>
+            </div>
+          </details>
 
-          <div class="menu-options-admin">
-            <strong>Option Group 3</strong>
+          <details class="menu-options-admin">
+            <summary>
+              <span class="menu-options-summary-text">
+                <span class="menu-options-summary-name">${escapeHtml(item.option_group_3_name || "Options / Sizes 3")}</span>
+                <span class="menu-options-count">${tertiaryOptions.length} option${tertiaryOptions.length === 1 ? "" : "s"}</span>
+              </span>
+            </summary>
+            <div class="menu-options-content">
             <div class="menu-option-row" style="margin-top:8px;">
               <input id="group3-name-${item.id}" value="${escapeHtml(item.option_group_3_name || "Options / Sizes 3")}" placeholder="Example: Side Choice" />
               <button class="menu-action-btn secondary" type="button" onclick="saveOptionGroupName('${item.id}', 3)">Save Name</button>
@@ -1528,7 +1630,10 @@
             <div class="menu-admin-buttons">
               <button class="menu-action-btn secondary" type="button" onclick="addMenuOption('${item.id}', 3)">+ Add Third Choice</button>
             </div>
-          </div>
+            </div>
+          </details>
+            </div>
+          </details>
         </article>
       `;
     }).join("");
